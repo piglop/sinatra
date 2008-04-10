@@ -592,6 +592,10 @@ module Sinatra
         h.merge(@route_params.merge(@request.params))
       end
     end
+
+    def data
+      @data ||= params.keys.first
+    end
     
     def stop(*args)
       throw :halt, args
