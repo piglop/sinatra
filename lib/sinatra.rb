@@ -30,8 +30,8 @@ module Sinatra
       end
       
       def status(code = nil)
-        @status = code if code
-        @status
+        @response.status = code if code
+        @response.status
       end
       
       def run_block(&b)
@@ -57,29 +57,20 @@ module Sinatra
       def call(env)
         context = EventContext.new(env)
         invoke(context)
-        context.run_block(&@block)
         context.finish
       end
       
       def invoke(context)
-        unless @method == context.request.request_method.downcase.to_sym
-          context.status(99)
-        end
-        unless @path == context.request.path_info
-          context.status(99)
+        context.status(99)
+        if @method == context.request.request_method.downcase.to_sym && @path == context.request.path_info
+          context.status(200)
+          context.run_block(&@block)
         end
         context.finish
       end
       
     end
     
-    attr_reader :apps
-    
-    def initialize(&b)
-      @apps = []
-      instance_eval(&b)
-    end
-
     module DSL
 
       def event(method, path, &b)
@@ -92,13 +83,18 @@ module Sinatra
       
     end
     include DSL
-    
-    def call(env)
-      status, headers, body = apps.eject do |app|
-        app.call(env)
-      end
+
+    def initialize(&b)
+      @apps = []
+      instance_eval(&b)
     end
-      
+    
+    attr_reader :apps
+
+    def call(env)
+      Rack::Cascade.new(apps, 99).call(env)
+    end
+    
   end
   
 end
