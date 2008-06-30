@@ -37,6 +37,7 @@ module Sinatra
       def run_block(&b)
         tap { |c| c.body = instance_eval(&b) }
       end
+      alias :body :run_block
       
       def method_missing(sym, *args, &b)
         @response.send(sym, *args, &b)
@@ -64,7 +65,7 @@ module Sinatra
         context.status(99)
         if @method == context.request.request_method.downcase.to_sym && @path == context.request.path_info
           context.status(200)
-          context.run_block(&@block)
+          context.body(&@block)
         end
         context.finish
       end
