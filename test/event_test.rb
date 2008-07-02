@@ -21,3 +21,13 @@ context "An Event (in general)" do
   end
   
 end
+
+context "An Event halted" do
+  
+  specify "should call to_result on the halted value" do
+    String.any_instance.expects(:to_result).with(kind_of(Sinatra::EventContext))
+    event = Sinatra::Event.new(:get, '/') { throw :halt, 'test' }
+    event.call(env_for('/'))
+  end  
+  
+end

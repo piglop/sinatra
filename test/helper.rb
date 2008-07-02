@@ -3,6 +3,7 @@ require "sinatra"
 
 require "rubygems"
 require "test/spec"
+require "mocha"
 
 class Test::Unit::TestCase
   

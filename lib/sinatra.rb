@@ -54,7 +54,11 @@ module Sinatra
     
     def call(env)
       context = EventContext.new(env)
-      catch(:halt) { invoke(context) }
+      result = catch(:halt) do
+        invoke(context)
+        nil
+      end
+      result.to_result(context) if result
       context.finish
     end
     
@@ -64,7 +68,6 @@ module Sinatra
         context.status(200)
         context.body(&@block)
       end
-      context.finish
     end
     
   end
@@ -75,7 +78,7 @@ module Sinatra
     module DSL
 
       def event(method, path, &b)
-        apps << Event.new(self, method, path, &b)
+        apps << Event.new(method, path, &b)
       end
       
       def get(path, &b)
