@@ -8,14 +8,6 @@ class Object
   end
 end
 
-module Enumerable
-  
-  def eject(&block)
-    find { |e| result = block[e] and break result }
-  end
-  
-end
-
 module Sinatra
 
   class EventContext
