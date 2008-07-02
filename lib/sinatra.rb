@@ -74,15 +74,30 @@ module Sinatra
     
   class Application
     
-    
     module DSL
 
       def event(method, path, &b)
         apps << Event.new(method, path, &b)
       end
       
+      def head(path, &b)
+        event(:head, path, &b)
+      end
+
       def get(path, &b)
         event(:get, path, &b)
+      end
+
+      def post(path, &b)
+        event(:post, path, &b)
+      end
+      
+      def put(path, &b)
+        event(:put, path, &b)
+      end
+      
+      def delete(path, &b)
+        event(:delete, path, &b)
       end
       
     end
