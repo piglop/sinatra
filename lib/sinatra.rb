@@ -1,5 +1,6 @@
 require "rubygems"
 require "rack"
+require "uri"
 
 class Object
   def tap
@@ -37,11 +38,28 @@ module Sinatra
   
   class Event
     
+    URI_CHAR = '[^/?:,&#\.]'.freeze unless defined?(URI_CHAR)
+    PARAM = /(:(#{URI_CHAR}+)|\*)/.freeze unless defined?(PARAM)
+    SPLAT = /(.*?)/
+    
+    attr_reader :params
+    
     def initialize(method, path, &b)
       @method = method.to_sym
-      @path   = path
+      @path   = URI.encode(path)
       @block  = b
       raise "Event needs a block on initialize" unless b
+      build_route
+    end
+    
+    def build_route
+      @param_keys = []
+      @params = {}
+      regex = @path.to_s.gsub(PARAM) do |match|
+        @param_keys << $2
+        "(#{URI_CHAR}+)"
+      end
+      @pattern = /^#{regex}$/
     end
     
     def call(env)
@@ -56,10 +74,11 @@ module Sinatra
     
     def invoke(context)
       context.status(99)
-      if @method == context.request.request_method.downcase.to_sym && @path == context.request.path_info
-        context.status(200)
-        context.body(&@block)
-      end
+      return unless @method == context.request.request_method.downcase.to_sym
+      return unless @pattern =~ context.request.path_info
+      @params.merge!(@param_keys.zip($~.captures.map(&:from_param)).to_hash)
+      context.status(200)
+      context.body(&@block)
     end
     
   end
@@ -106,6 +125,52 @@ module Sinatra
       Rack::Cascade.new(apps, 99).call(env)
     end
     
+  end
+  
+end
+
+module Rack
+
+  module Utils
+    extend self
+  end
+  
+end
+
+class Array
+  
+  def to_hash
+    self.inject({}) { |h, (k, v)|  h[k] = v; h }
+  end
+  
+  def to_proc
+    Proc.new { |*args| args.shift.__send__(self[0], *(args + self[1..-1])) }
+  end
+  
+end
+
+class String
+
+  # Converts +self+ to an escaped URI parameter value
+  #   'Foo Bar'.to_param # => 'Foo%20Bar'
+  def to_param
+    Rack::Utils.escape(self)
+  end
+  alias :http_escape :to_param
+  
+  # Converts +self+ from an escaped URI parameter value
+  #   'Foo%20Bar'.from_param # => 'Foo Bar'
+  def from_param
+    Rack::Utils.unescape(self)
+  end
+  alias :http_unescape :from_param
+  
+end
+
+class Symbol
+  
+  def to_proc 
+    Proc.new { |*args| args.shift.__send__(self, *args) }
   end
   
 end
