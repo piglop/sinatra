@@ -35,6 +35,14 @@ module Sinatra
       @response.send(sym, *args, &b)
     end
     
+    def fall
+      stop(99)
+    end
+    
+    def stop(*args)
+      throw :halt, *args
+    end
+    
   end
   
   class Event
@@ -77,9 +85,8 @@ module Sinatra
       end
     
       def invoke(context)
-        context.status(99)
-        return unless @method == context.request.request_method.downcase.to_sym
-        return unless @pattern =~ context.request.path_info
+        return context.fall unless @method == context.request.request_method.downcase.to_sym
+        return context.fall unless @pattern =~ context.request.path_info
         @params.merge!(@param_keys.zip($~.captures.map(&:from_param)).to_hash)
         context.status(200)
         context.body(&@block)
@@ -183,3 +190,45 @@ class Symbol
   end
   
 end
+
+### Core Extension results for throw :halt
+
+class Proc
+  def to_result(cx, *args)
+    cx.instance_eval(&self)
+    args.shift.to_result(cx, *args)
+  end
+end
+
+class String
+  def to_result(cx, *args)
+    args.shift.to_result(cx, *args)
+    self
+  end
+end
+
+class Array
+  def to_result(cx, *args)
+    self.shift.to_result(cx, *self)
+  end
+end
+
+class Symbol
+  def to_result(cx, *args)
+    cx.send(self, *args)
+  end
+end
+
+class Fixnum
+  def to_result(cx, *args)
+    cx.status self
+    args.shift.to_result(cx, *args)
+  end
+end
+
+class NilClass
+  def to_result(cx, *args)
+    ''
+  end
+end
+
