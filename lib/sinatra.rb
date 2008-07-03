@@ -52,15 +52,6 @@ module Sinatra
       build_route
     end
     
-    def build_route
-      @param_keys = []
-      @params = {}
-      regex = @path.to_s.gsub(PARAM) do |match|
-        @param_keys << $2
-        "(#{URI_CHAR}+)"
-      end
-      @pattern = /^#{regex}$/
-    end
     
     def call(env)
       context = EventContext.new(env)
@@ -71,15 +62,27 @@ module Sinatra
       result.to_result(context) if result
       context.finish
     end
+
+    protected
+
+      def build_route
+        @param_keys = []
+        @params = {}
+        regex = @path.to_s.gsub(PARAM) do |match|
+          @param_keys << $2
+          "(#{URI_CHAR}+)"
+        end
+        @pattern = /^#{regex}$/
+      end
     
-    def invoke(context)
-      context.status(99)
-      return unless @method == context.request.request_method.downcase.to_sym
-      return unless @pattern =~ context.request.path_info
-      @params.merge!(@param_keys.zip($~.captures.map(&:from_param)).to_hash)
-      context.status(200)
-      context.body(&@block)
-    end
+      def invoke(context)
+        context.status(99)
+        return unless @method == context.request.request_method.downcase.to_sym
+        return unless @pattern =~ context.request.path_info
+        @params.merge!(@param_keys.zip($~.captures.map(&:from_param)).to_hash)
+        context.status(200)
+        context.body(&@block)
+      end
     
   end
     
