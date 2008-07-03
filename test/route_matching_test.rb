@@ -13,6 +13,10 @@ context "Routes" do
     status, _ = event.call(env_for('/foo%20bar'))
     assert_equal(200, status)
   end
+  
+end
+
+context "Routes with params" do
 
   specify "should match variables in paths" do
     event = Sinatra::Event.new(:get, '/foo/:bar') {}
