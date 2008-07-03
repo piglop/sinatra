@@ -62,27 +62,23 @@ context "A Sinatra::Application with two Events" do
     
 end
 
-context "A Sinatra::Application with Events of different method types" do
+context "A Sinatra::Application with no Events that match request" do
 
   setup do
     @app = Rack::Builder.new do
       run(Sinatra::Application.new do
-        %w(head get post put delete).each do |type|
-          eval <<-EVAL
-            #{type} '/' do
-              "in #{type}"
-            end
-          EVAL
+        get '/' do
+          "you can't see me!"
         end
       end)
     end
     
     @request = Rack::MockRequest.new(@app)
-    @response = @request.post('/')
+    @response = @request.get('/asdf')
   end
   
-  specify "should return 200 status if there is a valid Event" do
-    assert_equal(200, @response.status)
+  specify "should return 404 status" do
+    assert_equal(404, @response.status)
   end
   
   specify "should return default headers" do
@@ -90,7 +86,7 @@ context "A Sinatra::Application with Events of different method types" do
   end
     
   specify "should return blocks return value as the body" do
-    assert_equal('in post', @response.body)
+    assert_equal('<h1>Not Found</h1>', @response.body)
   end
     
 end

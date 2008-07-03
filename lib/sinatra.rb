@@ -10,6 +10,7 @@ class Object
 end
 
 module Sinatra
+  extend self
 
   class EventContext
     
@@ -125,11 +126,16 @@ module Sinatra
     attr_reader :apps
 
     def call(env)
-      Rack::Cascade.new(apps, 99).call(env)
+      status, headers, body = Rack::Cascade.new(apps, 99).call(env)
+      if status == 99
+        [404, { 'Content-Type' => 'text/html'}, ['<h1>Not Found</h1>']]
+      else
+        [status, headers, body]
+      end
     end
     
   end
-  
+    
 end
 
 module Rack
