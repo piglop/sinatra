@@ -97,9 +97,11 @@ module Sinatra
   class Application
     
     module DSL
+      
+      FORWARDABLE_METHODS = [ :get, :post, :put, :delete, :head ]
 
       def event(method, path, &b)
-        apps << Event.new(method, path, &b)
+        events << Event.new(method, path, &b)
       end
       
       def head(path, &b)
@@ -124,16 +126,28 @@ module Sinatra
       
     end
     include DSL
+    
+    module DelegatingDSL
 
-    def initialize(&b)
-      @apps = []
-      instance_eval(&b)
+      DSL::FORWARDABLE_METHODS.each do |method|
+        eval(<<-EOS, binding, '(__DSL__)', 1)
+          def #{method}(*args, &b)
+            Sinatra.application.#{method}(*args, &b)
+          end
+        EOS
+      end
+      
     end
     
-    attr_reader :apps
+    attr_reader :events
+
+    def initialize(&b)
+      @events = []
+      instance_eval(&b)
+    end
 
     def call(env)
-      status, headers, body = Rack::Cascade.new(apps, 99).call(env)
+      status, headers, body = Rack::Cascade.new(events, 99).call(env)
       if status == 99
         [404, { 'Content-Type' => 'text/html'}, ['<h1>Not Found</h1>']]
       else
@@ -143,7 +157,15 @@ module Sinatra
     
   end
     
+  def application
+    @application ||= Application.new do
+      # do cool init stuff here!
+    end
+  end
+  
 end
+
+include Sinatra::Application::DelegatingDSL
 
 module Rack
 
