@@ -27,9 +27,8 @@ module Sinatra
     end
     
     def run_block(&b)
-      tap { |c| c.body = instance_eval(&b) }
+      tap { |c| c.body = instance_eval(&b) || '' }
     end
-    alias :body :run_block
     
     def method_missing(sym, *args, &b)
       @response.send(sym, *args, &b)
@@ -66,9 +65,11 @@ module Sinatra
       context = EventContext.new(env)
       result = catch(:halt) do
         invoke(context)
-        nil
+        :complete
       end
-      result.to_result(context) if result
+      context.run_block do 
+        result.to_result(context)
+      end unless result == :complete
       context.finish
     end
 

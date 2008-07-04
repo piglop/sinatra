@@ -20,6 +20,13 @@ context "An Event (in general)" do
     assert_equal('foo', response.body)
   end
   
+  specify "should return 200 status with empty body for nil return value" do
+    event = Sinatra::Event.new(:get, '/') { nil }
+    status, _, response = event.call(env_for('/'))
+    assert_equal(200, status)
+    assert_equal('', response.body)
+  end
+  
 end
 
 context "An Event halted" do
