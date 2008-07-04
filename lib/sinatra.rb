@@ -98,8 +98,6 @@ module Sinatra
     
     module DSL
       
-      FORWARDABLE_METHODS = [ :get, :post, :put, :delete, :head ]
-
       def event(method, path, &b)
         events << Event.new(method, path, &b)
       end
@@ -127,18 +125,6 @@ module Sinatra
     end
     include DSL
     
-    module DelegatingDSL
-
-      DSL::FORWARDABLE_METHODS.each do |method|
-        eval(<<-EOS, binding, '(__DSL__)', 1)
-          def #{method}(*args, &b)
-            Sinatra.application.#{method}(*args, &b)
-          end
-        EOS
-      end
-      
-    end
-    
     attr_reader :events
 
     def initialize(&b)
@@ -156,7 +142,21 @@ module Sinatra
     end
     
   end
+  
+  module DelegatingDSL
     
+    FORWARDABLE_METHODS = [ :get, :post, :put, :delete, :head ]
+    
+    FORWARDABLE_METHODS.each do |method|
+      eval(<<-EOS, binding, '(__DSL__)', 1)
+        def #{method}(*args, &b)
+          Sinatra.application.#{method}(*args, &b)
+        end
+      EOS
+    end
+    
+  end
+  
   def application
     @application ||= Application.new do
       # do cool init stuff here!
@@ -165,7 +165,7 @@ module Sinatra
   
 end
 
-include Sinatra::Application::DelegatingDSL
+include Sinatra::DelegatingDSL
 
 module Rack
 
