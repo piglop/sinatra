@@ -89,11 +89,25 @@ module Sinatra
         return context.fall unless @pattern =~ context.request.path_info
         @params.merge!(@param_keys.zip($~.captures.map(&:from_param)).to_hash)
         context.status(200)
-        context.body(&@block)
+        context.run_block(&@block)
       end
     
   end
+  
+  class ShowError
+    def initialize(app)
+      @app = app
+    end
     
+    def call(env)
+      begin
+        @app.call(env)
+      rescue => e
+        puts "#{e.class.name}: #{e.message}\n  #{e.backtrace.join("\n  ")}"
+      end
+    end
+  end
+  
   class Application
     
     module DSL
@@ -133,7 +147,10 @@ module Sinatra
     end
 
     def call(env)
-      status, headers, body = Rack::Cascade.new(events, 99).call(env)
+      app = Rack::Cascade.new(events, 99)
+      app = ShowError.new(app)
+      
+      status, headers, body = app.call(env)
       if status == 99
         [404, { 'Content-Type' => 'text/html'}, ['<h1>Not Found</h1>']]
       else
