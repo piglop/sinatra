@@ -11,4 +11,8 @@ class Test::Unit::TestCase
     Rack::MockRequest.env_for(*args)
   end
   
+  def context_for(*args)
+    Sinatra::EventContext.new(env_for(*args))
+  end
+  
 end

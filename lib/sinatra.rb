@@ -1,6 +1,7 @@
 require "rubygems"
 require "rack"
 require "uri"
+require "ostruct"
 
 class Object
   def tap
@@ -57,12 +58,10 @@ module Sinatra
       @path   = URI.encode(path)
       @block  = b
       raise "Event needs a block on initialize" unless b
-      build_route
+      build_route!
     end
     
-    
-    def call(env)
-      context = EventContext.new(env)
+    def call(context)
       result = catch(:halt) do
         invoke(context)
         :complete
@@ -75,7 +74,7 @@ module Sinatra
 
     protected
 
-      def build_route
+      def build_route!
         @param_keys = []
         @params = {}
         regex = @path.to_s.gsub(PARAM) do |match|
@@ -109,10 +108,79 @@ module Sinatra
     end
   end
   
+  class Cascade < Rack::Cascade
+    
+    def initialize(apps, catch=99)
+      super(apps, catch)
+    end
+    
+    def call(env)
+      context = EventContext.new(env)
+      super(context)
+    end
+    
+  end
+  
   class Application
     
-    module DSL
+    attr_reader :events, :options
+
+    def initialize(&b)
+      @events     = []
+      @middleware = []
+      @options = OpenStruct.new
       
+      use ShowError
+      
+      instance_eval(&b)
+    end
+    
+    def call(env)
+      status, headers, body = pipeline.call(env)
+      if status == 99
+        [404, { 'Content-Type' => 'text/html' }, ['<h1>Not Found</h1>']]
+      else
+        [status, headers, body]
+      end
+    end
+
+    protected
+    
+      def pipeline
+        @pipeline ||=
+          middleware.inject(dispatcher) do |app,(klass,args,block)|
+            klass.new(app, *args, &block)
+          end
+      end
+      
+      def dispatcher
+        @dispatcher ||= Cascade.new(events, 99)
+      end
+      
+      # Rack middleware derived from current state of application options.
+      # These components are plumbed in at the very beginning of the
+      # pipeline.
+      def optional_middleware
+        [
+          ([ Rack::CommonLogger,    [], nil ] if options.logging),
+          ([ Rack::Session::Cookie, [], nil ] if options.sessions)
+        ].compact
+      end
+
+      # Rack middleware explicitly added to the application with #use. These
+      # components are plumbed into the pipeline downstream from
+      # #optional_middle.
+      def explicit_middleware
+        @middleware
+      end
+
+      # All Rack middleware used to construct the pipeline.
+      def middleware
+        optional_middleware + explicit_middleware
+      end
+                
+    module DSL
+
       def event(method, path, &b)
         events << Event.new(method, path, &b)
       end
@@ -137,28 +205,74 @@ module Sinatra
         event(:delete, path, &b)
       end
       
+      # Add a piece of Rack middleware to the pipeline leading to the
+      # application.
+      def use(klass, *args, &block)
+        fail "#{klass} must respond to 'new'" unless klass.respond_to?(:new)
+        @pipeline = nil
+        @middleware.push([ klass, args, block ]).last
+      end
+
+      # Yield to the block for configuration if the current environment
+      # matches any included in the +envs+ list. Always yield to the block
+      # when no environment is specified.
+      #
+      # NOTE: configuration blocks are not executed during reloads.
+      def configures(*envs, &b)
+        return if reloading?
+        yield self if envs.empty? || envs.include?(options.env)
+      end
+
+      alias :configure :configures
+
+      # When both +option+ and +value+ arguments are provided, set the option
+      # specified. With a single Hash argument, set all options specified in
+      # Hash. Options are available via the Application#options object.
+      #
+      # Setting individual options:
+      #   set :port, 80
+      #   set :env, :production
+      #   set :views, '/path/to/views'
+      #
+      # Setting multiple options:
+      #   set :port  => 80,
+      #       :env   => :production,
+      #       :views => '/path/to/views'
+      #
+      def set(option, value=self)
+        if value == self && option.kind_of?(Hash)
+          option.each { |key,val| set(key, val) }
+        else
+          options.send("#{option}=", value)
+        end
+      end
+
+      alias :set_option :set
+      alias :set_options :set
+
+      # Enable the options specified by setting their values to true. For
+      # example, to enable sessions and logging:
+      #   enable :sessions, :logging
+      def enable(*opts)
+        opts.each { |key| set(key, true) }
+      end
+
+      # Disable the options specified by setting their values to false. For
+      # example, to disable logging and automatic run:
+      #   disable :logging, :run
+      def disable(*opts)
+        opts.each { |key| set(key, false) }
+      end
+      
+      # Determine whether the application is in the process of being
+      # reloaded.
+      def reloading?
+        @reloading == true
+      end
+      
     end
     include DSL
-    
-    attr_reader :events
-
-    def initialize(&b)
-      @events = []
-      instance_eval(&b)
-    end
-
-    def call(env)
-      app = Rack::Cascade.new(events, 99)
-      app = ShowError.new(app)
-      
-      status, headers, body = app.call(env)
-      if status == 99
-        [404, { 'Content-Type' => 'text/html'}, ['<h1>Not Found</h1>']]
-      else
-        [status, headers, body]
-      end
-    end
-    
+        
   end
   
   module DelegatingDSL
@@ -177,7 +291,9 @@ module Sinatra
   
   def application
     @application ||= Application.new do
-      # do cool init stuff here!
+      configure do
+        enable :logging
+      end
     end
   end
   

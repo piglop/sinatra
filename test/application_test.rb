@@ -3,12 +3,10 @@ require File.dirname(__FILE__) + "/helper"
 context "A Sinatra::Application with one Event" do
   
   setup do
-    @app = Rack::Builder.new do
-      run(Sinatra::Application.new do
-        get '/' do
-          'hello world'
-        end
-      end)
+    @app = Sinatra::Application.new do
+       get '/' do
+         'hello world'
+       end
     end
     
     @request = Rack::MockRequest.new(@app)
@@ -32,16 +30,14 @@ end
 context "A Sinatra::Application with two Events" do
 
   setup do
-    @app = Rack::Builder.new do
-      run(Sinatra::Application.new do
-        get '/' do
-          'hello world'
-        end
-        
-        get '/foo' do
-          'in foo'
-        end
-      end)
+    @app = Sinatra::Application.new do
+       get '/' do
+         'hello world'
+       end
+       
+       get '/foo' do
+         'in foo'
+       end
     end
     
     @request = Rack::MockRequest.new(@app)
@@ -65,12 +61,10 @@ end
 context "A Sinatra::Application with no Events that match request" do
 
   setup do
-    @app = Rack::Builder.new do
-      run(Sinatra::Application.new do
-        get '/' do
-          "you can't see me!"
-        end
-      end)
+    @app = Sinatra::Application.new do
+       get '/' do
+         "you can't see me!"
+       end
     end
     
     @request = Rack::MockRequest.new(@app)
@@ -89,5 +83,29 @@ context "A Sinatra::Application with no Events that match request" do
     assert_equal('<h1>Not Found</h1>', @response.body)
   end
     
+end
+
+context "A Sinatra::Application when falling" do
+  
+  specify "should preserve context" do
+    @app = Sinatra::Application.new do
+      get '/' do
+        @foo = 'you got me'
+        fall
+        nil
+      end
+      
+      get '/' do
+        @foo
+      end
+    end
+    
+    @request = Rack::MockRequest.new(@app)
+    @response = @request.get('/')
+    assert_equal('you got me', @response.body)
+  end
+  
+  
+  
 end
 
