@@ -13,6 +13,8 @@ end
 module Sinatra
   extend self
 
+  class NotFound < Exception; end
+
   class EventContext
     
     attr_reader :request, :response
@@ -108,15 +110,14 @@ module Sinatra
     end
   end
   
-  class Cascade < Rack::Cascade
+  class ContextualCascade < Rack::Cascade
     
     def initialize(apps, catch=99)
       super(apps, catch)
     end
     
     def call(env)
-      context = EventContext.new(env)
-      super(context)
+      super(EventContext.new(env))
     end
     
   end
@@ -154,7 +155,7 @@ module Sinatra
       end
       
       def dispatcher
-        @dispatcher ||= Cascade.new(events, 99)
+        @dispatcher ||= ContextualCascade.new(events, 99)
       end
       
       # Rack middleware derived from current state of application options.

@@ -17,7 +17,7 @@ end
 
 context "Registerd Errors" do
   
-  specify "should not rise out of the application" do
+  xspecify "should not rise out of the application" do
     app = Sinatra::Application.new do
       get '/' do
         raise Sinatra::NotFound
