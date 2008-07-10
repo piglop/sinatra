@@ -92,7 +92,6 @@ context "A Sinatra::Application when falling" do
       get '/' do
         @foo = 'you got me'
         fall
-        nil
       end
       
       get '/' do
@@ -104,8 +103,6 @@ context "A Sinatra::Application when falling" do
     @response = @request.get('/')
     assert_equal('you got me', @response.body)
   end
-  
-  
   
 end
 
