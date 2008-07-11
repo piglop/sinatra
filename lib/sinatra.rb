@@ -46,6 +46,10 @@ module Sinatra
       throw :halt, args
     end
     
+    def params
+      @params ||= request.params
+    end
+    
   end
 
   class Event
@@ -79,9 +83,7 @@ module Sinatra
     URI_CHAR = '[^/?:,&#\.]'.freeze unless defined?(URI_CHAR)
     PARAM = /(:(#{URI_CHAR}+)|\*)/.freeze unless defined?(PARAM)
     SPLAT = /(.*?)/
-    
-    attr_reader :params
-    
+        
     def initialize(method, path, &b)
       super(&b)
       @method = method.to_sym
@@ -93,7 +95,6 @@ module Sinatra
 
       def build_route!
         @param_keys = []
-        @params = {}
         regex = @path.to_s.gsub(PARAM) do |match|
           @param_keys << $2
           "(#{URI_CHAR}+)"
@@ -104,7 +105,8 @@ module Sinatra
       def invoke(context)
         return context.fall unless @method == context.request.request_method.downcase.to_sym
         return context.fall unless @pattern =~ context.request.path_info
-        @params.merge!(@param_keys.zip($~.captures.map(&:from_param)).to_hash)
+        params = @param_keys.zip($~.captures.map(&:from_param)).to_hash
+        context.params.merge!(params)
         context.status(200)
         super(context)
       end

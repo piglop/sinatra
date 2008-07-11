@@ -25,9 +25,9 @@ context "Routes with params" do
   end
   
   specify "should expose values of route params" do
-    event = Sinatra::RESTEvent.new(:get, '/foo/:bar') {}
-    status, _ = event.call(context_for('/foo/baz'))
-    assert_equal('baz', event.params['bar'])
+    event = Sinatra::RESTEvent.new(:get, '/foo/:bar') { params['bar'] }
+    status, _, response = event.call(context_for('/foo/baz'))
+    assert_equal('baz', response.body)
   end
     
 end
