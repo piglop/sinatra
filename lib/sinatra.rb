@@ -47,9 +47,30 @@ module Sinatra
     end
     
     def params
-      @params ||= request.params
+      env['sinatra.params']
     end
     
+    def env
+      request.env
+    end
+    
+  end
+
+  class EventLogger
+    def initialize(app)
+      @app = app
+    end
+    
+    def call(env)
+      @app.call(env).tap do |status,(headers, body)|
+        puts
+        puts "~ Request:\t#{env['PATH_INFO'].inspect}"
+        puts "~ Params:\t#{env['sinatra.params'].inspect}"
+        if status >= 300 && status < 400
+          puts "~ Redirecting to:\t #{headers['Location'].inspect}"
+        end
+      end
+    end
   end
 
   class Event
@@ -106,7 +127,7 @@ module Sinatra
         return context.fall unless @method == context.request.request_method.downcase.to_sym
         return context.fall unless @pattern =~ context.request.path_info
         params = @param_keys.zip($~.captures.map(&:from_param)).to_hash
-        context.params.merge!(params)
+        context.env['sinatra.params'] = context.request.params.merge(params)
         context.status(200)
         super(context)
       end
@@ -194,6 +215,10 @@ module Sinatra
       @errors     = {}
       @middleware = []
       @options = OpenStruct.new(self.class.default_options)
+
+      configure :development do
+        use EventLogger
+      end
       
       error NotFound do
         stop 404, '<h1>Not Found</h1>'
