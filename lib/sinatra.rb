@@ -222,12 +222,9 @@ module Sinatra
       def dispatch(env)
         context = EventContext.new(env)
         begin
-          status, headers, body = run_events(context)
-          if status == 99
-            errors[NotFound].call(context)
-          else
-            [status, headers, body]
-          end
+          status, _ = run_events(context)
+          errors[NotFound].call(context) if status == 99
+          context.finish
         rescue => e
           error = errors[e.class] || errors[ServerError]
           if options.error_logging
