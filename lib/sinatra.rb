@@ -115,11 +115,54 @@ module Sinatra
     
     attr_reader :events, :errors, :options
 
+    # Hash of default application configuration options. When a new
+    # Application is created, the #options object takes its initial values
+    # from here.
+    #
+    # Changes to the default_options Hash effect only Application objects
+    # created after the changes are made. For this reason, modifications to
+    # the default_options Hash typically occur at the very beginning of a
+    # file, before any DSL related functions are invoked.
+    def self.default_options
+      return @default_options unless @default_options.nil?
+      root = File.expand_path(File.dirname($0))
+      @default_options = {
+        :run => true,
+        :port => 4567,
+        :host => '0.0.0.0',
+        :env => :development,
+        :root => root,
+        :views => root + '/views',
+        :public => root + '/public',
+        :sessions => false,
+        :logging => true,
+        :app_file => $0,
+        :error_logging => true,
+        :raise_errors => false
+      }
+      load_default_options_from_command_line!
+      @default_options
+    end
+    
+    # Search ARGV for command line arguments and update the
+    # Sinatra::default_options Hash accordingly. This method is
+    # invoked the first time the default_options Hash is accessed.
+    # NOTE:  Ignores --name so unit/spec tests can run individually
+    def self.load_default_options_from_command_line! #:nodoc:
+      require 'optparse'
+      OptionParser.new do |op|
+        op.on('-p port') { |port| default_options[:port] = port }
+        op.on('-e env') { |env| default_options[:env] = env.to_sym }
+        op.on('-x') { default_options[:mutex] = true }
+        op.on('-s server') { |server| default_options[:server] = server }
+      end.parse!(ARGV.dup.select { |o| o !~ /--name/ })
+    end
+
     def initialize(&b)
       @events     = []
       @errors     = {}
       @middleware = []
-      @options = OpenStruct.new
+      @options = OpenStruct.new(self.class.default_options)
       
       error NotFound do
         stop 404, '<h1>Not Found</h1>'
@@ -128,10 +171,10 @@ module Sinatra
       error ServerError do
         stop 500, '<h1>Internal Server Error</h1>'
       end
-      
+                  
       instance_eval(&b)
     end
-    
+        
     def call(env)
       status, headers, body = pipeline.call(env)
       if status == 99
@@ -140,7 +183,7 @@ module Sinatra
         [status, headers, body]
       end
     end
-
+    
     protected
     
       def pipeline
@@ -158,6 +201,7 @@ module Sinatra
           run_events(context)
         rescue => e
           error = errors[e.class] || errors[ServerError]
+          STDERR.puts "#{e.class.name}: #{e.message}\n  #{e.backtrace.join("\n  ")}" if options.error_logging
           error.call(context)
         end
       end

@@ -1,5 +1,5 @@
 $:.unshift File.dirname(__FILE__) + "/../lib"
-require "sinatra"
+require "sinatra/test"
 
 require "rubygems"
 require "test/spec"

@@ -21,7 +21,7 @@ context "The pipeline" do
         request.env['test_var']
       end
     end
-    _, _, response = app.call(env_for("/"))
+    response = Rack::MockRequest.new(app).get('/')
     assert_equal('X', response.body)
   end
 

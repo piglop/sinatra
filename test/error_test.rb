@@ -33,13 +33,4 @@ context "Registerd Errors" do
     assert_equal('fubar', response.body)
   end
 
-  # specify "should have their corisponding events invoked" do
-  #   app = Sinatra::Application.new do
-  #     get '/' do
-  #       raise Sinatra::NotFound
-  #     end
-  #   end
-  #   assert_raise(MyError) { Rack::MockRequest.new(app).get('/') }
-  # end
-
 end
