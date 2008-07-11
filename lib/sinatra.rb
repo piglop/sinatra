@@ -306,28 +306,28 @@ module Sinatra
         errors[e] = Event.new(&b)
       end
 
-      def event(method, path, &b)
+      def event(method, path, options = {}, &b)
         events << RESTEvent.new(method, path, &b)
       end
       
-      def head(path, &b)
-        event(:head, path, &b)
+      def head(path, options = {}, &b)
+        event(:head, path, options, &b)
       end
 
-      def get(path, &b)
-        event(:get, path, &b)
+      def get(path, options = {}, &b)
+        event(:get, path, options, &b)
       end
 
-      def post(path, &b)
-        event(:post, path, &b)
+      def post(path, options = {}, &b)
+        event(:post, path, options, &b)
       end
       
-      def put(path, &b)
-        event(:put, path, &b)
+      def put(path, options = {}, &b)
+        event(:put, path, options, &b)
       end
       
-      def delete(path, &b)
-        event(:delete, path, &b)
+      def delete(path, options = {}, &b)
+        event(:delete, path, options, &b)
       end
       
       # Add a piece of Rack middleware to the pipeline leading to the
