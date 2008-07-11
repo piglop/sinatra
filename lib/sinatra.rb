@@ -110,18 +110,6 @@ module Sinatra
     end
   end
   
-  class ContextualCascade < Rack::Cascade
-    
-    def initialize(apps, catch=99)
-      super(apps, catch)
-    end
-    
-    def call(env)
-      super(EventContext.new(env))
-    end
-    
-  end
-  
   class Application
     
     attr_reader :events, :options
@@ -149,13 +137,25 @@ module Sinatra
     
       def pipeline
         @pipeline ||=
-          middleware.inject(dispatcher) do |app,(klass,args,block)|
+          middleware.inject(method(:dispatch)) do |app,(klass,args,block)|
             klass.new(app, *args, &block)
           end
       end
       
-      def dispatcher
-        @dispatcher ||= ContextualCascade.new(events, 99)
+      ##
+      # Adapted from Rack::Cascade
+      def dispatch(env)
+        context = EventContext.new(env)
+        run_events(context)
+      end
+      
+      def run_events(context)
+        status = headers = body = nil
+        events.each do |event|
+          status, headers, body = event.call(context)
+          break unless status.to_i == 99
+        end
+        [status, headers, body]
       end
       
       # Rack middleware derived from current state of application options.
