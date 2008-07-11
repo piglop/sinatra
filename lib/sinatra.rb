@@ -223,7 +223,10 @@ module Sinatra
         context = EventContext.new(env)
         begin
           status, _ = run_events(context)
-          errors[NotFound].call(context) if status == 99
+          if status == 99
+            context.status(404)
+            errors[NotFound].call(context) 
+          end
           context.finish
         rescue => e
           error = errors[e.class] || errors[ServerError]
@@ -235,6 +238,7 @@ module Sinatra
       end
       
       def run_events(context)
+        raise "There are no events registered" if events.empty?
         status = headers = body = nil
         events.each do |event|
           status, headers, body = event.call(context)
@@ -367,7 +371,7 @@ module Sinatra
   
   module DelegatingDSL
     
-    FORWARDABLE_METHODS = [ :get, :post, :put, :delete, :head ]
+    FORWARDABLE_METHODS = [ :get, :post, :put, :delete, :head, :error ]
     
     FORWARDABLE_METHODS.each do |method|
       eval(<<-EOS, binding, '(__DSL__)', 1)
@@ -479,5 +483,6 @@ class NilClass
 end
 
 at_exit do
+  exit if $!
   Sinatra.application.run
 end
