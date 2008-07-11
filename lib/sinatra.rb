@@ -124,8 +124,12 @@ module Sinatra
       end
     
       def invoke(context)
-        return context.fall unless @method == context.request.request_method.downcase.to_sym
-        return context.fall unless @pattern =~ context.request.path_info
+        unless @method == context.request.request_method.downcase.to_sym
+          return context.fall
+        end
+        unless @pattern =~ context.request.path_info
+          return context.fall 
+        end
         params = @param_keys.zip($~.captures.map(&:from_param)).to_hash
         context.env['sinatra.params'] = context.request.params.merge(params)
         context.status(200)
