@@ -157,7 +157,36 @@ module Sinatra
         op.on('-s server') { |server| default_options[:server] = server }
       end.parse!(ARGV.dup.select { |o| o !~ /--name/ })
     end
+    
+    def server
+      options.server ||= defined?(Rack::Handler::Thin) ? "thin" : "mongrel"
 
+      # Convert the server into the actual handler name
+      handler = options.server.capitalize
+
+      # If the convenience conversion didn't get us anything, 
+      # fall back to what the user actually set.
+      handler = options.server unless Rack::Handler.const_defined?(handler)
+
+      @server ||= eval("Rack::Handler::#{handler}")
+    end
+    
+    def run
+      return unless options.run
+      require 'thin'
+      begin
+        puts "== Sinatra has taken the stage on port #{options.port} for #{options.env} with backup by #{server.name}"
+        server.run(self, {:Port => options.port, :Host => options.host}) do |server|
+          trap(:INT) do
+            server.stop
+            puts "\n== Sinatra has ended his set (crowd applauds)"
+          end
+        end
+      rescue Errno::EADDRINUSE => e
+        puts "== Someone is already performing on port #{options.port}!"
+      end
+    end
+    
     def initialize(&b)
       @events     = []
       @errors     = {}
@@ -176,12 +205,7 @@ module Sinatra
     end
         
     def call(env)
-      status, headers, body = pipeline.call(env)
-      if status == 99
-        [404, { 'Content-Type' => 'text/html' }, ['<h1>Not Found</h1>']]
-      else
-        [status, headers, body]
-      end
+      pipeline.call(env)
     end
     
     protected
@@ -198,7 +222,12 @@ module Sinatra
       def dispatch(env)
         context = EventContext.new(env)
         begin
-          run_events(context)
+          status, headers, body = run_events(context)
+          if status == 99
+            errors[NotFound].call(context)
+          else
+            [status, headers, body]
+          end
         rescue => e
           error = errors[e.class] || errors[ServerError]
           if options.error_logging
@@ -452,3 +481,6 @@ class NilClass
   end
 end
 
+at_exit do
+  Sinatra.application.run
+end
