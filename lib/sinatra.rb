@@ -51,6 +51,7 @@ module Sinatra
   class Event
     
     def initialize(&b)
+      raise "Event needs a block on initialize" unless b
       @block = b
     end
     
@@ -82,24 +83,12 @@ module Sinatra
     attr_reader :params
     
     def initialize(method, path, &b)
+      super(&b)
       @method = method.to_sym
       @path   = URI.encode(path)
-      @block  = b
-      raise "Event needs a block on initialize" unless b
       build_route!
     end
     
-    def call(context)
-      result = catch(:halt) do
-        invoke(context)
-        :complete
-      end
-      context.run_block do 
-        result.to_result(context)
-      end unless result == :complete
-      context.finish
-    end
-
     protected
 
       def build_route!
