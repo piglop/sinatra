@@ -14,6 +14,7 @@ module Sinatra
   extend self
 
   class NotFound < Exception; end
+  class ServerError < Exception; end
 
   class EventContext
     
@@ -42,12 +43,37 @@ module Sinatra
     end
     
     def stop(*args)
-      throw :halt, *args
+      throw :halt, args
     end
     
   end
-  
+
   class Event
+    
+    def initialize(&b)
+      @block = b
+    end
+    
+    def call(context)
+      result = catch(:halt) do
+        invoke(context)
+        :complete
+      end
+      context.run_block do 
+        result.to_result(context)
+      end unless result == :complete
+      context.finish
+    end
+    
+    protected
+    
+      def invoke(context)
+        context.run_block(&@block)
+      end
+    
+  end
+  
+  class RESTEvent < Event
     
     URI_CHAR = '[^/?:,&#\.]'.freeze unless defined?(URI_CHAR)
     PARAM = /(:(#{URI_CHAR}+)|\*)/.freeze unless defined?(PARAM)
@@ -91,7 +117,7 @@ module Sinatra
         return context.fall unless @pattern =~ context.request.path_info
         @params.merge!(@param_keys.zip($~.captures.map(&:from_param)).to_hash)
         context.status(200)
-        context.run_block(&@block)
+        super(context)
       end
     
   end
@@ -112,14 +138,23 @@ module Sinatra
   
   class Application
     
-    attr_reader :events, :options
+    attr_reader :events, :errors, :options
 
     def initialize(&b)
       @events     = []
+      @errors     = {}
       @middleware = []
       @options = OpenStruct.new
       
       use ShowError
+      
+      error NotFound do
+        stop 404, '<h1>Not Found</h1>'
+      end
+      
+      error ServerError do
+        stop 500, '<h1>Internal Server Error</h1>'
+      end
       
       instance_eval(&b)
     end
@@ -146,7 +181,12 @@ module Sinatra
       # Adapted from Rack::Cascade
       def dispatch(env)
         context = EventContext.new(env)
-        run_events(context)
+        begin
+          run_events(context)
+        rescue => e
+          error = errors[e.class] || errors[ServerError]
+          error.call(context)
+        end
       end
       
       def run_events(context)
@@ -182,8 +222,12 @@ module Sinatra
                 
     module DSL
 
+      def error(e, &b)
+        errors[e] = Event.new(&b)
+      end
+
       def event(method, path, &b)
-        events << Event.new(method, path, &b)
+        events << RESTEvent.new(method, path, &b)
       end
       
       def head(path, &b)

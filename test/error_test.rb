@@ -1,6 +1,6 @@
 require File.dirname(__FILE__) + "/helper"
 
-class MyError < Exception; end
+class MyError < RuntimeError; end
 
 context "Unregisterd Errors" do
   
@@ -10,20 +10,27 @@ context "Unregisterd Errors" do
         raise MyError, 'whoa!'
       end
     end
-    assert_raise(MyError) { Rack::MockRequest.new(app).get('/') }
+    response = Rack::MockRequest.new(app).get('/')
+    assert_equal(500, response.status)
+    assert_equal('<h1>Internal Server Error</h1>', response.body)
   end
   
 end
 
 context "Registerd Errors" do
   
-  xspecify "should not rise out of the application" do
+  specify "should not rise out of the application" do
     app = Sinatra::Application.new do
+      error MyError do
+        'fubar'
+      end
+      
       get '/' do
-        raise Sinatra::NotFound
+        raise MyError
       end
     end
-    assert_nothing_raised(MyError) { Rack::MockRequest.new(app).get('/') }
+    response = Rack::MockRequest.new(app).get('/')
+    assert_equal('fubar', response.body)
   end
 
   # specify "should have their corisponding events invoked" do
