@@ -110,21 +110,7 @@ module Sinatra
       end
     
   end
-  
-  class ShowError
-    def initialize(app)
-      @app = app
-    end
     
-    def call(env)
-      begin
-        @app.call(env)
-      rescue => e
-        puts "#{e.class.name}: #{e.message}\n  #{e.backtrace.join("\n  ")}"
-      end
-    end
-  end
-  
   class Application
     
     attr_reader :events, :errors, :options
@@ -134,8 +120,6 @@ module Sinatra
       @errors     = {}
       @middleware = []
       @options = OpenStruct.new
-      
-      use ShowError
       
       error NotFound do
         stop 404, '<h1>Not Found</h1>'

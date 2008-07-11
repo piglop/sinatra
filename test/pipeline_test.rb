@@ -25,11 +25,4 @@ context "The pipeline" do
     assert_equal('X', response.body)
   end
 
-  specify "should install ShowError by default" do
-    app = Sinatra::Application.new {}
-    middleware = app.instance_eval { @middleware }
-    assert_equal(1, middleware.size)
-    assert_equal(Sinatra::ShowError, middleware.first.first)
-  end
-  
 end
