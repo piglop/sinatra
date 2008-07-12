@@ -260,6 +260,7 @@ module Sinatra
           end
           context.finish
         rescue => e
+          context.status(500)
           error = errors[e.class] || errors[ServerError]
           if options.error_logging
             puts "#{e.class.name}: #{e.message}\n  #{e.backtrace.join("\n  ")}"
