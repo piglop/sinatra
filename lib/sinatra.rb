@@ -35,7 +35,11 @@ module Sinatra
     end
     
     def method_missing(sym, *args, &b)
-      @response.send(sym, *args, &b)
+      if env.respond_to?(sym)
+        env.send(sym, *args, &b)
+      else
+        @response.send(sym, *args, &b)
+      end
     end
     
     def fall
@@ -236,7 +240,8 @@ module Sinatra
     end
         
     def call(env)
-      pipeline.call(env)
+      context = EventContext.new(env) unless env.is_a?(EventContext)
+      pipeline.call(context)
     end
     
     protected
@@ -250,8 +255,7 @@ module Sinatra
       
       ##
       # Adapted from Rack::Cascade
-      def dispatch(env)
-        context = EventContext.new(env)
+      def dispatch(context)
         begin
           status, _ = run_events(context)
           if status == 99
