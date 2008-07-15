@@ -85,6 +85,7 @@ module Sinatra
     end
     
     def call(context)
+      context.status(200)
       result = catch(:halt) do
         invoke(context)
         :complete
@@ -239,8 +240,8 @@ module Sinatra
       instance_eval(&b)
     end
         
-    def call(env)
-      context = EventContext.new(env) unless env.is_a?(EventContext)
+    def call(context)
+      context = EventContext.new(context) unless context.is_a?(EventContext)
       pipeline.call(context)
     end
     
@@ -258,12 +259,9 @@ module Sinatra
       def dispatch(context)
         begin
           status, _ = run_events(context)
-          if status == 99
-            context.status(404)
-            errors[NotFound].call(context) 
-          end
           context.finish
         rescue => e
+          raise e if options.raise_errors
           context.status(500)
           error = errors[e.class] || errors[ServerError]
           if options.error_logging
@@ -304,11 +302,42 @@ module Sinatra
       def middleware
         optional_middleware + explicit_middleware
       end
-                
+    
+    module Middleware
+      
+      class NotFoundHandler
+        attr_reader :errors
+        
+        def initialize(app, errors)
+          @app    = app
+          @errors = errors
+        end
+        
+        def call(env)
+          status, *_ = @app.call(env)
+          if status == 99
+            status = 404
+            errors[Sinatra::NotFound].call(env)
+          else
+            [status, *_]
+          end
+        end
+      end
+      
+    end
+    
     module DSL
 
       def error(e, &b)
         errors[e] = Event.new(&b)
+      end
+      
+      def filter(&b)
+        events << Event.new(&b)
+      end
+      
+      def group(&b)
+        events << Application.new(&b)
       end
 
       def event(method, path, options = {}, &b)

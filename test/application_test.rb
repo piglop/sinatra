@@ -4,9 +4,10 @@ context "A Sinatra::Application with one Event" do
   
   setup do
     @app = Sinatra::Application.new do
-       get '/' do
-         'hello world'
-       end
+      use Sinatra::Application::Middleware::NotFoundHandler, errors
+      get '/' do
+       'hello world'
+      end
     end
     
     @request = Rack::MockRequest.new(@app)
@@ -31,13 +32,15 @@ context "A Sinatra::Application with two Events" do
 
   setup do
     @app = Sinatra::Application.new do
-       get '/' do
-         'hello world'
-       end
-       
-       get '/foo' do
-         'in foo'
-       end
+      use Sinatra::Application::Middleware::NotFoundHandler, errors
+
+      get '/' do
+       'hello world'
+      end
+
+      get '/foo' do
+       'in foo'
+      end
     end
     
     @request = Rack::MockRequest.new(@app)
@@ -62,9 +65,11 @@ context "A Sinatra::Application with no Events that match request" do
 
   setup do
     @app = Sinatra::Application.new do
-       get '/' do
-         "you can't see me!"
-       end
+      use Sinatra::Application::Middleware::NotFoundHandler, errors
+
+      get '/' do
+       "you can't see me!"
+      end
     end
     
     @request = Rack::MockRequest.new(@app)

@@ -6,6 +6,8 @@ context "Unregisterd Errors" do
   
   specify "should rise out of the applcation" do
     app = Sinatra::Application.new do
+      disable :raise_errors
+      
       get '/' do
         raise MyError, 'whoa!'
       end
@@ -21,6 +23,8 @@ context "Registerd Errors" do
   
   specify "should not rise out of the application" do
     app = Sinatra::Application.new do
+      disable :raise_errors
+
       error MyError do
         'fubar'
       end
