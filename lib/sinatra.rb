@@ -13,8 +13,14 @@ end
 module Sinatra
   extend self
 
-  class NotFound < Exception; end
-  class ServerError < Exception; end
+  class Error < RuntimeError
+    def self.code(code=nil)
+      @code = code if code
+      @code || 500
+    end
+  end
+  class NotFound < Error;     code(404); end
+  class ServerError < Error;  code(500); end
 
   class EventContext
     
@@ -260,9 +266,9 @@ module Sinatra
         begin
           status, _ = run_events(context)
           context.finish
-        rescue => e
+        rescue Sinatra::Error => e
           raise e if options.raise_errors
-          context.status(500)
+          context.status(e.class.code)
           error = errors[e.class] || errors[ServerError]
           if options.error_logging
             puts "#{e.class.name}: #{e.message}\n  #{e.backtrace.join("\n  ")}"

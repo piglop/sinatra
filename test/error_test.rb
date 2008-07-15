@@ -1,6 +1,6 @@
 require File.dirname(__FILE__) + "/helper"
 
-class MyError < RuntimeError; end
+class MyError < Sinatra::Error; end
 
 context "Unregisterd Errors" do
   
