@@ -113,5 +113,36 @@ context "Filters when falling" do
     assert_equal('inner foo', response.body)
     
   end
+
+  specify "should be successful when falling through to next app" do
+    
+    app = Sinatra::Application.new do
+            
+      group do
+        
+        filter do
+          @foo = 'inner foo'
+          fall_group
+        end
+        
+        filter do
+          @foo = 'not it'
+        end
+        
+      end
+      
+      filter do
+        @foo
+      end
+
+    end
+
+    request   = Rack::MockRequest.new(app)
+    response  = request.get('/')
+    
+    assert_equal(200, response.status)
+    assert_equal('inner foo', response.body)
+    
+  end
   
 end

@@ -56,6 +56,10 @@ module Sinatra
       throw :halt, args
     end
     
+    def fall_group
+      throw :halt_group
+    end
+            
     def params
       env['sinatra.params']
     end
@@ -248,7 +252,12 @@ module Sinatra
         
     def call(context)
       context = EventContext.new(context) unless context.is_a?(EventContext)
-      pipeline.call(context)
+      result = catch :halt_group do
+        pipeline.call(context)
+        :complete
+      end
+      context.status(99) unless result == :complete
+      context.finish
     end
     
     protected
