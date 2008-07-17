@@ -145,4 +145,25 @@ context "Filters when falling" do
     
   end
 
+  specify "should pass options to filters" do
+    
+    app = Sinatra::Application.new :foo => "ASDF" do
+      
+      group :foo => 'bar' do
+                
+        filter do
+          options[:foo]
+        end
+        
+      end
+      
+    end
+
+    request   = Rack::MockRequest.new(app)
+    response  = request.get('/')
+    
+    assert_equal('bar', response.body)
+    
+  end
+
 end

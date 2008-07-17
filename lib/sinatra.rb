@@ -159,7 +159,7 @@ module Sinatra
     
   class Application
     
-    attr_reader :events, :errors, :options
+    attr_reader :events, :errors, :options, :o
 
     # Hash of default application configuration options. When a new
     # Application is created, the #options object takes its initial values
@@ -233,11 +233,12 @@ module Sinatra
       end
     end
     
-    def initialize(&b)
+    def initialize(options = {}, &b)
       @events     = []
       @errors     = {}
       @middleware = []
-      @options = OpenStruct.new(self.class.default_options)
+      @o          = self.class.default_options.merge(options)
+      @options    = OpenStruct.new(@o)
 
       configure :development do
         use EventLogger
@@ -352,11 +353,11 @@ module Sinatra
       end
       
       def filter(options = {}, &b)
-        events << Filter.new(options, &b)
+        events << Filter.new(self.o.merge(options), &b)
       end
       
-      def group(&b)
-        events << Application.new(&b)
+      def group(options = {}, &b)
+        events << Application.new(self.o.merge(options), &b)
       end
 
       def event(method, path, options = {}, &b)
