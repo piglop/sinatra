@@ -89,7 +89,7 @@ module Sinatra
     end
   end
 
-  class Event
+  class Filter
     
     def initialize(options = {}, &b)
       raise "Event needs a block on initialize" unless b
@@ -118,7 +118,7 @@ module Sinatra
     
   end
   
-  class RESTEvent < Event
+  class RESTEvent < Filter
     
     URI_CHAR = '[^/?:,&#\.]'.freeze unless defined?(URI_CHAR)
     PARAM = /(:(#{URI_CHAR}+)|\*)/.freeze unless defined?(PARAM)
@@ -348,11 +348,11 @@ module Sinatra
     module DSL
 
       def error(e, &b)
-        errors[e] = Event.new(&b)
+        errors[e] = Filter.new(&b)
       end
       
       def filter(options = {}, &b)
-        events << Event.new(options, &b)
+        events << Filter.new(options, &b)
       end
       
       def group(&b)
