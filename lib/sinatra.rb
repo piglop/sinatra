@@ -24,11 +24,13 @@ module Sinatra
 
   class EventContext
     
-    attr_reader :request, :response
+    attr_reader   :request, :response
+    attr_accessor :options
     
     def initialize(env)
-      @request = Rack::Request.new(env)
+      @request  = Rack::Request.new(env)
       @response = Rack::Response.new
+      @options  = {}
     end
     
     def status(code = nil)
@@ -89,13 +91,15 @@ module Sinatra
 
   class Event
     
-    def initialize(&b)
+    def initialize(options = {}, &b)
       raise "Event needs a block on initialize" unless b
-      @block = b
+      @block    = b
+      @options  = options
     end
     
     def call(context)
       context.status(200)
+      context.options = @options
       result = catch(:halt) do
         invoke(context)
         :complete
@@ -347,8 +351,8 @@ module Sinatra
         errors[e] = Event.new(&b)
       end
       
-      def filter(&b)
-        events << Event.new(&b)
+      def filter(options = {}, &b)
+        events << Event.new(options, &b)
       end
       
       def group(&b)

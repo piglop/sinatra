@@ -145,4 +145,21 @@ context "Filters when falling" do
     
   end
   
+  specify "gets it's daily meta" do
+    
+    app = Sinatra::Application.new do
+      
+      filter :some_meta => 'foo' do
+        options[:some_meta]
+      end
+
+    end
+    
+    request   = Rack::MockRequest.new(app)
+    response  = request.get('/')    
+    
+    assert_equal('foo', response.body)
+    
+  end
+  
 end
