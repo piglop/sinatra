@@ -118,48 +118,13 @@ module Sinatra
     
   end
   
-  class RESTEvent < Filter
-    
-    URI_CHAR = '[^/?:,&#\.]'.freeze unless defined?(URI_CHAR)
-    PARAM = /(:(#{URI_CHAR}+)|\*)/.freeze unless defined?(PARAM)
-    SPLAT = /(.*?)/
-        
-    def initialize(method, path, &b)
-      super(&b)
-      @method = method.to_sym
-      @path   = URI.encode(path)
-      build_route!
-    end
-    
-    protected
-
-      def build_route!
-        @param_keys = []
-        regex = @path.to_s.gsub(PARAM) do |match|
-          @param_keys << $2
-          "(#{URI_CHAR}+)"
-        end
-        @pattern = /^#{regex}$/
-      end
-    
-      def invoke(context)
-        unless @method == context.request.request_method.downcase.to_sym
-          return context.fall
-        end
-        unless @pattern =~ context.request.path_info
-          return context.fall 
-        end
-        params = @param_keys.zip($~.captures.map(&:from_param)).to_hash
-        context.env['sinatra.params'] = context.request.params.merge(params)
-        context.status(200)
-        super(context)
-      end
-    
-  end
-    
   class Application
     
     attr_reader :events, :errors, :options, :o
+
+    URI_CHAR = '[^/?:,&#\.]'.freeze unless defined?(URI_CHAR)
+    PARAM = /(:(#{URI_CHAR}+)|\*)/.freeze unless defined?(PARAM)
+    SPLAT = /(.*?)/
 
     # Hash of default application configuration options. When a new
     # Application is created, the #options object takes its initial values
@@ -219,7 +184,6 @@ module Sinatra
     
     def run
       return unless options.run
-      require 'thin'
       begin
         puts "== Sinatra has taken the stage on port #{options.port} for #{options.env} with backup by #{server.name}"
         server.run(self, {:Port => options.port, :Host => options.host}) do |server|
@@ -361,7 +325,39 @@ module Sinatra
       end
 
       def event(method, path, options = {}, &b)
-        events << RESTEvent.new(method, path, &b)
+        path                  = URI.encode(path)
+        
+        options               = options.dup
+        options[:method]      = method
+        options[:path]        = path
+
+        param_keys = []
+        regex = path.to_s.gsub(PARAM) do |match|
+          param_keys << $2
+          "(#{URI_CHAR}+)"
+        end
+
+        options[:pattern]     = /^#{regex}$/
+        options[:param_keys]  = param_keys
+        
+        group options do
+          
+          filter do
+            request_method = request.request_method.downcase.to_sym
+            
+            fall_group unless options[:method]  == request_method
+            fall_group unless options[:pattern] =~ request.path_info
+            
+            matches = $~.captures.map(&:from_param)
+            params = options[:param_keys].zip(matches).to_hash
+            env['sinatra.params'] = request.params.merge(params)
+            
+            fall
+          end
+          
+          filter(&b)
+          
+        end
       end
       
       def head(path, options = {}, &b)
