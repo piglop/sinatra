@@ -618,6 +618,8 @@ module Sinatra
       def filter(options = {}, &b)
         events << Filter.new(self.o.merge(options), &b)
       end
+      alias :before :filter
+      alias :after  :filter
       
       def group(options = {}, &b)
         events << Application.new(self.o.merge(options), &b)
