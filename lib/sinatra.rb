@@ -22,7 +22,94 @@ module Sinatra
   class NotFound < Error;     code(404); end
   class ServerError < Error;  code(500); end
 
+  ##
+  #
+  #
+  #
+  # Template rendering
+  #
+  #
+  #
+  ##
+
+  module RenderingHelpers
+
+    def render(renderer, template, options={})
+      m = method("render_#{renderer}")
+      result = m.call(resolve_template(renderer, template, options), options)
+      if layout = determine_layout(renderer, template, options)
+        result = m.call(resolve_template(renderer, layout, options), options) { result }
+      end
+      result
+    end
+    
+    def determine_layout(renderer, template, options)
+      return if options[:layout] == false
+      layout_from_options = options[:layout] || :layout
+      resolve_template(renderer, layout_from_options, options, false)
+    end
+
+    private
+        
+      def resolve_template(renderer, template, options, scream = true)
+        case template
+        when String
+          template
+        when Proc
+          template.call
+        when Symbol
+          if proc = templates[template]
+            resolve_template(renderer, proc, options, scream)
+          else
+            read_template_file(renderer, template, options, scream)
+          end
+        else
+          nil
+        end
+      end
+      
+      def read_template_file(renderer, template, options, scream = true)
+        path = File.join(
+          options[:views_directory] || Sinatra.application.options.views,
+          "#{template}.#{renderer}"
+        )
+        unless File.exists?(path)
+          raise Errno::ENOENT.new(path) if scream
+          nil
+        else  
+          File.read(path)
+        end
+      end
+      
+      def templates
+        options[:templates] || {}
+      end
+    
+  end
+
+
+
+  module Haml
+    
+    def haml(content, options={})
+      require 'haml'
+      render(:haml, content, options)
+    end
+    
+    private
+    
+      def render_haml(content, options = {}, &b)
+        haml_options = (options[:options] || {}).merge(options[:haml] || {})
+        ::Haml::Engine.new(content, haml_options).render(options[:scope] || self, options[:locals] || {}, &b)
+      end
+        
+  end
+
+
+
   class EventContext
+    include RenderingHelpers
+    include Haml
     
     attr_reader   :request, :response
     attr_accessor :options
@@ -71,6 +158,16 @@ module Sinatra
     end
     
   end
+
+  ##
+  #
+  #
+  #
+  # Middleware
+  #
+  #
+  #
+  ##
 
   class EventLogger
     def initialize(app)
@@ -203,6 +300,8 @@ module Sinatra
       @middleware = []
       @o          = self.class.default_options.merge(options)
       @options    = OpenStruct.new(@o)
+      
+      @o[:templates] ||= {}
 
       configure :development do
         use EventLogger
