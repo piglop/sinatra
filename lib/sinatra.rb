@@ -348,6 +348,10 @@ module Sinatra
       request.env
     end
     
+    def session
+      env['rack.session']
+    end
+    
   end
 
   ##
@@ -377,6 +381,8 @@ module Sinatra
     end
   end
 
+
+
   class Filter
     
     def initialize(options = {}, &b)
@@ -405,7 +411,9 @@ module Sinatra
       end
     
   end
-  
+
+
+
   class Application
     
     attr_reader :events, :errors, :options, :o
@@ -511,12 +519,13 @@ module Sinatra
         
     def call(context)
       context = EventContext.new(context) unless context.is_a?(EventContext)
+      status, headers, body = nil
       result = catch :halt_group do
-        pipeline.call(context)
+        status, headers, body = pipeline.call(context)
         :complete
       end
-      context.status(99) unless result == :complete
-      context.finish
+      status = 99 unless result == :complete
+      [status, headers, body]
     end
     
     protected
@@ -532,8 +541,8 @@ module Sinatra
       # Adapted from Rack::Cascade
       def dispatch(context)
         begin
-          status, _ = run_events(context)
-          context.finish
+          status, *_ = run_events(context)
+          [status, *_]
         rescue Sinatra::Error => e
           raise e if options.raise_errors
           context.status(e.class.code)
