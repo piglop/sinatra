@@ -21,8 +21,8 @@ context "Filters when falling" do
 
     end
     
-    assert_equal(2, app.events.size)
-    assert_equal(1, app.events.last.events.size)
+    assert_equal(2, app.filters.size)
+    assert_equal(1, app.filters.last.filters.size)
     
     request   = Rack::MockRequest.new(app)
     response  = request.get('/')

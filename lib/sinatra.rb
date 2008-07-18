@@ -416,7 +416,7 @@ module Sinatra
 
   class Application
     
-    attr_reader :events, :errors, :options, :o
+    attr_reader :filters, :errors, :options, :o
 
     URI_CHAR = '[^/?:,&#\.]'.freeze unless defined?(URI_CHAR)
     PARAM = /(:(#{URI_CHAR}+)|\*)/.freeze unless defined?(PARAM)
@@ -494,7 +494,7 @@ module Sinatra
     end
     
     def initialize(options = {}, &b)
-      @events     = []
+      @filters     = []
       @errors     = {}
       @middleware = []
       @o          = self.class.default_options.merge(options)
@@ -541,7 +541,7 @@ module Sinatra
       # Adapted from Rack::Cascade
       def dispatch(context)
         begin
-          status, *_ = run_events(context)
+          status, *_ = run_filters(context)
           [status, *_]
         rescue Sinatra::Error => e
           raise e if options.raise_errors
@@ -554,11 +554,11 @@ module Sinatra
         end
       end
       
-      def run_events(context)
-        raise "There are no events registered" if events.empty?
+      def run_filters(context)
+        raise "There are no filters registered" if filters.empty?
         status = headers = body = nil
-        events.each do |event|
-          status, headers, body = event.call(context)
+        filters.each do |filter|
+          status, headers, body = filter.call(context)
           break unless status.to_i == 99
         end
         [status, headers, body]
@@ -616,13 +616,13 @@ module Sinatra
       end
       
       def filter(options = {}, &b)
-        events << Filter.new(self.o.merge(options), &b)
+        filters << Filter.new(self.o.merge(options), &b)
       end
       alias :before :filter
       alias :after  :filter
       
       def group(options = {}, &b)
-        events << Application.new(self.o.merge(options), &b)
+        filters << Application.new(self.o.merge(options), &b)
       end
 
       def event(method, path, options = {}, &b)
