@@ -8,6 +8,11 @@ class Object
     yield self
     self
   end
+  
+  def try(s, *args)
+    return unless respond_to?(s)
+    send(s, *args)
+  end
 end
 
 module Sinatra
@@ -351,7 +356,22 @@ module Sinatra
     def session
       env['rack.session']
     end
-    
+
+    # Access or modify response headers. With no argument, return the
+    # underlying headers Hash. With a Hash argument, add or overwrite
+    # existing response headers with the values provided:
+    #
+    # headers 'Content-Type' => "text/html;charset=utf-8",
+    # 'Last-Modified' => Time.now.httpdate,
+    # 'X-UA-Compatible' => 'IE=edge'
+    #
+    # This method also available in singular form (#header).
+    def headers(header = nil)
+      @response.headers.merge!(header) if header
+      @response.headers
+    end
+    alias :header :headers        
+
   end
 
   ##
@@ -392,6 +412,7 @@ module Sinatra
     end
     
     def call(context)
+      @options[:trace].try(:call, self)
       context.status(200)
       context.options = @options
       result = catch(:halt) do
@@ -462,6 +483,7 @@ module Sinatra
         op.on('-e env') { |env| default_options[:env] = env.to_sym }
         op.on('-x') { default_options[:mutex] = true }
         op.on('-s server') { |server| default_options[:server] = server }
+        op.on('-t') { default_options[:trace] = true }
       end.parse!(ARGV.dup.select { |o| o !~ /--name/ })
     end
     
@@ -541,11 +563,10 @@ module Sinatra
       # Adapted from Rack::Cascade
       def dispatch(context)
         begin
-          status, *_ = run_filters(context)
-          [status, *_]
+          run_filters(context)
         rescue => e
-          raise e if options.raise_errors
-          context.status(e.class.code)
+          raise e if options.raise_errors && e.class != NotFound
+          context.status(e.class.try(:code) || 500)
           error = errors[e.class] || errors[ServerError]
           if options.error_logging
             puts "#{e.class.name}: #{e.message}\n  #{e.backtrace.join("\n  ")}"
@@ -556,12 +577,12 @@ module Sinatra
       
       def run_filters(context)
         raise "There are no filters registered" if filters.empty?
-        status = headers = body = nil
+        status = _ = nil
         filters.each do |filter|
-          status, headers, body = filter.call(context)
+          status, *_ = filter.call(context)
           break unless status.to_i == 99
         end
-        [status, headers, body]
+        [status, *_]
       end
       
       # Rack middleware derived from current state of application options.
@@ -640,6 +661,12 @@ module Sinatra
 
         options[:pattern]     = /^#{regex}$/
         options[:param_keys]  = param_keys
+                
+        if Application.default_options[:trace]
+          options[:tracer] = lambda do |me|
+            puts "#{method.to_s.upcase} #{path}" 
+          end
+        end
         
         group options do
           
@@ -773,9 +800,13 @@ module Sinatra
   
   def application
     @application ||= Application.new do
+
+      use Application::Middleware::NotFoundHandler, errors
+            
       configure do
         enable :logging
       end
+      
     end
   end
   
