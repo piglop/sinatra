@@ -543,7 +543,7 @@ module Sinatra
         begin
           status, *_ = run_filters(context)
           [status, *_]
-        rescue Sinatra::Error => e
+        rescue => e
           raise e if options.raise_errors
           context.status(e.class.code)
           error = errors[e.class] || errors[ServerError]
@@ -611,7 +611,7 @@ module Sinatra
     
     module DSL
 
-      def error(e, &b)
+      def error(e = ServerError, &b)
         errors[e] = Filter.new(&b)
       end
       
@@ -746,6 +746,10 @@ module Sinatra
         @reloading == true
       end
       
+      def helpers(&b)
+        EventContext.instance_eval(&b)
+      end
+      
     end
     include DSL
         
@@ -753,7 +757,9 @@ module Sinatra
   
   module DelegatingDSL
     
-    FORWARDABLE_METHODS = [ :get, :post, :put, :delete, :head, :error ]
+    FORWARDABLE_METHODS = [ :get, :post, :put, :delete, :head, :error,
+                            :set, :set_option, :enable, :disable,
+                            :configure, :configures, :use, :helpers ]
     
     FORWARDABLE_METHODS.each do |method|
       eval(<<-EOS, binding, '(__DSL__)', 1)
