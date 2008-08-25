@@ -349,6 +349,10 @@ module Sinatra
       env['sinatra.params']
     end
     
+    def host
+      env['sinatra.hostmatches']
+    end
+    
     def env
       request.env
     end
@@ -646,12 +650,23 @@ module Sinatra
         filters << Application.new(self.o.merge(options), &b)
       end
 
-      def event(method, path, options = {}, &b)
+      def for_host(fhost, &b)
+        group do
+          filter do
+            fall_group unless /#{fhost}/ =~ request.host
+            env['sinatra.hostmatches'] = $~[1..-1]
+            fall
+          end
+          group(&b)
+        end
+      end
+
+      def event(method, path, opts = {}, &b)
         path                  = URI.encode(path)
         
-        options               = options.dup
-        options[:method]      = method
-        options[:path]        = path
+        opts               = opts.dup
+        opts[:method]      = method
+        opts[:path]        = path
 
         param_keys = []
         regex = path.to_s.gsub(PARAM) do |match|
@@ -659,16 +674,16 @@ module Sinatra
           "(#{URI_CHAR}+)"
         end
 
-        options[:pattern]     = /^#{regex}$/
-        options[:param_keys]  = param_keys
+        opts[:pattern]     = /^#{regex}$/
+        opts[:param_keys]  = param_keys
                 
         if Application.default_options[:trace]
-          options[:tracer] = lambda do |me|
+          opts[:tracer] = lambda do |me|
             puts "#{method.to_s.upcase} #{path}" 
           end
         end
         
-        group options do
+        group opts do
           
           filter do
             request_method = request.request_method.downcase.to_sym
@@ -786,7 +801,7 @@ module Sinatra
     
     FORWARDABLE_METHODS = [ :get, :post, :put, :delete, :head, :error,
                             :set, :set_option, :enable, :disable,
-                            :configure, :configures, :use, :helpers ]
+                            :configure, :configures, :use, :helpers, :for_host ]
     
     FORWARDABLE_METHODS.each do |method|
       eval(<<-EOS, binding, '(__DSL__)', 1)
