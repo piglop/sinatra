@@ -662,7 +662,7 @@ module Sinatra
       end
 
       def event(method, path, opts = {}, &b)
-        path                  = URI.encode(path)
+        path               = URI.encode(path)
         
         opts               = opts.dup
         opts[:method]      = method
