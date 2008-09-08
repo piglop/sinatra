@@ -13,6 +13,8 @@ Gem::Specification.new do |s|
 
   # = MANIFEST =
   s.files = %w[
+    LICENSE
+    README.rdoc
     Rakefile
     lib/sinatra.rb
     lib/sinatra/test.rb
