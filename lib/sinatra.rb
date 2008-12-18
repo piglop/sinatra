@@ -1307,7 +1307,7 @@ module Sinatra
             </style>
           </head>
           <body>
-            <h2>Sinatra doesn't know this diddy.</h2>
+            <h2>Sinatra doesn't know this ditty.</h2>
             <img src='/sinatra_custom_images/404.png'>
             <div id="content">
               Try this:
