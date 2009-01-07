@@ -1254,7 +1254,7 @@ module Sinatra
             [:complete, context.instance_eval(&result.block)]
           end
         body = returned.to_result(context)
-      rescue => e
+      rescue Exception => e
         msg  = "#{e.class.name} - #{e.message}:"
         msg << "\n  #{e.backtrace.join("\n  ")}"
         request.env['rack.errors'] << msg
